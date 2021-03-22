@@ -4,12 +4,10 @@ go 1.15
 
 require (
 	github.com/bitfinexcom/bitfinex-api-go v0.0.0-20210226135753-3649a968eee2
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8 // indirect
 	github.com/gorilla/websocket v1.4.2
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.6 // indirect
-	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7 // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/quickfixgo/enum v0.0.0-20171007195659-2cbed3730c3e
 	github.com/quickfixgo/field v0.0.0-20171007195410-74cea5ec78c7
