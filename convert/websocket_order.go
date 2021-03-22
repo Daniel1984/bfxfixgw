@@ -1,12 +1,14 @@
 package convert
 
 import (
-	"github.com/quickfixgo/field"
-	"github.com/shopspring/decimal"
 	"strconv"
 	"strings"
 
-	"github.com/bitfinexcom/bitfinex-api-go/v2"
+	"github.com/quickfixgo/field"
+	"github.com/shopspring/decimal"
+
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/common"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/order"
 
 	"github.com/quickfixgo/enum"
 	"github.com/quickfixgo/quickfix"
@@ -37,20 +39,20 @@ func OrderNewTypeFromFIX(msg quickfix.FieldMap) (ordType string, err quickfix.Me
 
 	// map AON & IOC => FOK
 	if tif.Value() == enum.TimeInForce_FILL_OR_KILL || tif.Value() == enum.TimeInForce_IMMEDIATE_OR_CANCEL {
-		ordType = bitfinex.OrderTypeExchangeFOK
+		ordType = common.OrderTypeExchangeFOK
 	} else {
 		switch ot.Value() {
 		case enum.OrdType_MARKET:
-			ordType = bitfinex.OrderTypeExchangeMarket
+			ordType = common.OrderTypeExchangeMarket
 		case enum.OrdType_LIMIT:
-			ordType = bitfinex.OrderTypeExchangeLimit
+			ordType = common.OrderTypeExchangeLimit
 		case enum.OrdType_STOP:
-			ordType = bitfinex.OrderTypeExchangeStop
+			ordType = common.OrderTypeExchangeStop
 			if msg.Has(ei.Tag()) && strings.Contains(string(ei.Value()), string(enum.ExecInst_PRIMARY_PEG)) {
-				ordType = bitfinex.OrderTypeExchangeTrailingStop
+				ordType = common.OrderTypeExchangeTrailingStop
 			}
 		case enum.OrdType_STOP_LIMIT:
-			ordType = bitfinex.OrderTypeExchangeStopLimit
+			ordType = common.OrderTypeExchangeStopLimit
 		}
 	}
 
@@ -175,8 +177,8 @@ func GetPricesFromOrdType(msg quickfix.FieldMap) (t enum.OrdType, px float64, au
 
 // OrderNewFromFIXNewOrderSingle converts a generic NewOrderSingle into a new order for the
 // bitfinex websocket API, as best as it can.
-func OrderNewFromFIXNewOrderSingle(msg quickfix.FieldMap, symbology symbol.Symbology, counterparty string) (*bitfinex.OrderNewRequest, quickfix.MessageRejectError) {
-	on := &bitfinex.OrderNewRequest{}
+func OrderNewFromFIXNewOrderSingle(msg quickfix.FieldMap, symbology symbol.Symbology, counterparty string) (*order.NewRequest, quickfix.MessageRejectError) {
+	on := &order.NewRequest{}
 
 	on.GID = 0
 	cidfield := &field.ClOrdIDField{}

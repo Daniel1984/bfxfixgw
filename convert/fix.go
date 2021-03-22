@@ -1,12 +1,14 @@
 package convert
 
 import (
-	"github.com/bitfinexcom/bitfinex-api-go/v2"
+	"strings"
+	"time"
+
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/book"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/common"
 	"github.com/quickfixgo/enum"
 	"github.com/quickfixgo/field"
 	"github.com/shopspring/decimal"
-	"strings"
-	"time"
 )
 
 const (
@@ -21,33 +23,33 @@ const (
 )
 
 // OrdStatusToFIX converts generic FIX types.
-func OrdStatusToFIX(status bitfinex.OrderStatus) enum.OrdStatus {
+func OrdStatusToFIX(status string) enum.OrdStatus {
 	// if the status is a composite (e.g. EXECUTED @ X: was PARTIALLY FILLED @ Y)
 	// executed check must come first
-	if strings.Contains(string(status), string(bitfinex.OrderStatusExecuted)) {
+	if strings.Contains(status, common.OrderStatusExecuted) {
 		return enum.OrdStatus_FILLED
 	}
-	if strings.Contains(string(status), string(bitfinex.OrderStatusPartiallyFilled)) {
+	if strings.Contains(status, common.OrderStatusPartiallyFilled) {
 		return enum.OrdStatus_PARTIALLY_FILLED
 	}
-	if strings.Contains(string(status), string(bitfinex.OrderStatusCanceled)) {
+	if strings.Contains(status, common.OrderStatusCanceled) {
 		return enum.OrdStatus_CANCELED
 	}
 	return enum.OrdStatus_NEW
 }
 
 // ExecTypeToFIX follows FIX 4.1+ rules on merging ExecTransType + ExecType fields into new ExecType enums.
-func ExecTypeToFIX(status bitfinex.OrderStatus) enum.ExecType {
-	if strings.Contains(string(status), string(bitfinex.OrderStatusActive)) {
+func ExecTypeToFIX(status string) enum.ExecType {
+	if strings.Contains(status, common.OrderStatusActive) {
 		return enum.ExecType_NEW
 	}
-	if strings.Contains(string(status), string(bitfinex.OrderStatusCanceled)) {
+	if strings.Contains(status, common.OrderStatusCanceled) {
 		return enum.ExecType_CANCELED
 	}
-	if strings.Contains(string(status), string(bitfinex.OrderStatusPartiallyFilled)) {
+	if strings.Contains(status, common.OrderStatusPartiallyFilled) {
 		return enum.ExecType_TRADE
 	}
-	if strings.Contains(string(status), string(bitfinex.OrderStatusExecuted)) {
+	if strings.Contains(status, common.OrderStatusExecuted) {
 		return enum.ExecType_TRADE
 	}
 	return enum.ExecType_ORDER_STATUS
@@ -89,30 +91,30 @@ func AvgPxToFIX(priceAvg float64) field.AvgPxField {
 }
 
 // OrdTypeToFIX converts bitfinex order type to FIX order type
-func OrdTypeToFIX(bfxOrdType bitfinex.OrderType) (ordType enum.OrdType, isMargin bool) {
+func OrdTypeToFIX(bfxOrdType common.OrderType) (ordType enum.OrdType, isMargin bool) {
 	isMargin = strings.Contains(string(bfxOrdType), "MARGIN")
 	switch strings.Replace(string(bfxOrdType), "MARGIN", "EXCHANGE", 1) {
-	case bitfinex.OrderTypeExchangeLimit:
+	case common.OrderTypeExchangeLimit:
 		fallthrough
-	case bitfinex.OrderTypeLimit:
+	case common.OrderTypeLimit:
 		ordType = enum.OrdType_LIMIT
-	case bitfinex.OrderTypeExchangeMarket:
+	case common.OrderTypeExchangeMarket:
 		fallthrough
-	case bitfinex.OrderTypeMarket:
+	case common.OrderTypeMarket:
 		ordType = enum.OrdType_MARKET
-	case bitfinex.OrderTypeStop:
+	case common.OrderTypeStop:
 		fallthrough
-	case bitfinex.OrderTypeTrailingStop:
+	case common.OrderTypeTrailingStop:
 		fallthrough
-	case bitfinex.OrderTypeExchangeTrailingStop:
+	case common.OrderTypeExchangeTrailingStop:
 		fallthrough
-	case bitfinex.OrderTypeExchangeStop:
+	case common.OrderTypeExchangeStop:
 		ordType = enum.OrdType_STOP
-	case bitfinex.OrderTypeStopLimit:
+	case common.OrderTypeStopLimit:
 		ordType = enum.OrdType_STOP_LIMIT
-	case bitfinex.OrderTypeFOK:
+	case common.OrderTypeFOK:
 		fallthrough
-	case bitfinex.OrderTypeExchangeFOK:
+	case common.OrderTypeExchangeFOK:
 		ordType = enum.OrdType_LIMIT
 	default:
 		ordType = enum.OrdType_MARKET
@@ -121,11 +123,11 @@ func OrdTypeToFIX(bfxOrdType bitfinex.OrderType) (ordType enum.OrdType, isMargin
 }
 
 // BookActionToFIX converts bitfinex book action to FIX MD enum
-func BookActionToFIX(action bitfinex.BookAction) enum.MDUpdateAction {
+func BookActionToFIX(action book.BookAction) enum.MDUpdateAction {
 	switch action {
-	case bitfinex.BookUpdateEntry:
+	case book.BookEntry:
 		return enum.MDUpdateAction_NEW
-	case bitfinex.BookRemoveEntry:
+	case book.BookRemoveEntry:
 		return enum.MDUpdateAction_DELETE
 	}
 	return enum.MDUpdateAction_NEW
@@ -140,30 +142,30 @@ func MTSToTime(mts int64) (time.Time, bool) {
 }
 
 // TimeInForceToFIX converts bitfinex order type to FIX TimeInForce
-func TimeInForceToFIX(ordtype bitfinex.OrderType, mtstif int64) (enum.TimeInForce, time.Time) {
+func TimeInForceToFIX(ordtype common.OrderType, mtstif int64) (enum.TimeInForce, time.Time) {
 	tif, ok := MTSToTime(mtstif)
 	if ok {
 		return enum.TimeInForce_GOOD_TILL_DATE, tif
 	}
 	switch ordtype {
-	case bitfinex.OrderTypeFOK:
+	case common.OrderTypeFOK:
 		fallthrough
-	case bitfinex.OrderTypeExchangeFOK:
+	case common.OrderTypeExchangeFOK:
 		return enum.TimeInForce_FILL_OR_KILL, tif
 	}
 	return enum.TimeInForce_GOOD_TILL_CANCEL, tif // GTC default
 }
 
 // ExecInstToFIX converts bitfinex order type with flags to FIX exec inst
-func ExecInstToFIX(ordtype bitfinex.OrderType, flags int) (enum.ExecInst, bool) {
+func ExecInstToFIX(ordtype common.OrderType, flags int) (enum.ExecInst, bool) {
 	execInst := ""
 	switch ordtype {
-	case bitfinex.OrderTypeTrailingStop:
+	case common.OrderTypeTrailingStop:
 		fallthrough
-	case bitfinex.OrderTypeExchangeTrailingStop:
+	case common.OrderTypeExchangeTrailingStop:
 		execInst = string(enum.ExecInst_PRIMARY_PEG)
 	}
-	if flags&bitfinex.OrderFlagPostOnly != 0 {
+	if flags&common.OrderFlagPostOnly != 0 {
 		execInst = execInst + string(enum.ExecInst_PARTICIPANT_DONT_INITIATE)
 	}
 	return enum.ExecInst(execInst), execInst != "" // helps determining if ExecInst should be set
@@ -171,7 +173,7 @@ func ExecInstToFIX(ordtype bitfinex.OrderType, flags int) (enum.ExecInst, bool) 
 
 // DisplayMethodToFIX converts flags into FIX display method
 func DisplayMethodToFIX(flags int) (enum.DisplayMethod, bool) {
-	if flags&bitfinex.OrderFlagHidden != 0 {
+	if flags&common.OrderFlagHidden != 0 {
 		return enum.DisplayMethod_UNDISCLOSED, true
 	}
 	return "", false

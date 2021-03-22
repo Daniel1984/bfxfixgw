@@ -3,13 +3,20 @@
 package convert
 
 import (
-	"github.com/quickfixgo/quickfix"
 	"strconv"
 	"time"
 
+	"github.com/quickfixgo/quickfix"
+
 	"github.com/bitfinexcom/bfxfixgw/service/symbol"
 
-	"github.com/bitfinexcom/bitfinex-api-go/v2"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/book"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/common"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/order"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/position"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/trade"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/trades"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/wallet"
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/quickfixgo/enum"
@@ -60,7 +67,7 @@ type GenericFix interface {
 }
 
 // FIXMarketDataFullRefreshFromTradeSnapshot generates a market data full refresh
-func FIXMarketDataFullRefreshFromTradeSnapshot(beginString, mdReqID string, snapshot *bitfinex.TradeSnapshot, symbology symbol.Symbology, counterparty string) (message GenericFix) {
+func FIXMarketDataFullRefreshFromTradeSnapshot(beginString, mdReqID string, snapshot *trades.TradeSnapshot, symbology symbol.Symbology, counterparty string) (message GenericFix) {
 	if len(snapshot.Snapshot) <= 0 {
 		return nil
 	}
@@ -103,7 +110,7 @@ func FIXMarketDataFullRefreshFromTradeSnapshot(beginString, mdReqID string, snap
 }
 
 // FIXMarketDataFullRefreshFromBookSnapshot generates a market data full refresh
-func FIXMarketDataFullRefreshFromBookSnapshot(beginString, mdReqID string, snapshot *bitfinex.BookUpdateSnapshot, symbology symbol.Symbology, counterparty string) (message GenericFix) {
+func FIXMarketDataFullRefreshFromBookSnapshot(beginString, mdReqID string, snapshot *book.Snapshot, symbology symbol.Symbology, counterparty string) (message GenericFix) {
 	if len(snapshot.Snapshot) <= 0 {
 		return nil
 	}
@@ -135,9 +142,9 @@ func FIXMarketDataFullRefreshFromBookSnapshot(beginString, mdReqID string, snaps
 		entry := group.Add()
 		var t enum.MDEntryType
 		switch update.Side {
-		case bitfinex.Bid:
+		case common.Bid:
 			t = enum.MDEntryType_BID
-		case bitfinex.Ask:
+		case common.Ask:
 			t = enum.MDEntryType_OFFER
 		}
 		entry.SetMDEntryType(t)
@@ -153,7 +160,7 @@ func FIXMarketDataFullRefreshFromBookSnapshot(beginString, mdReqID string, snaps
 }
 
 // FIXMarketDataIncrementalRefreshFromTrade makes an incremental refresh entry from a trade
-func FIXMarketDataIncrementalRefreshFromTrade(beginString, mdReqID string, trade *bitfinex.Trade, symbology symbol.Symbology, counterparty string) (message GenericFix) {
+func FIXMarketDataIncrementalRefreshFromTrade(beginString, mdReqID string, trade *trade.Trade, symbology symbol.Symbology, counterparty string) (message GenericFix) {
 	symbol, err := symbology.FromBitfinex(trade.Pair, counterparty)
 	if err != nil {
 		symbol = trade.Pair
@@ -189,7 +196,7 @@ func FIXMarketDataIncrementalRefreshFromTrade(beginString, mdReqID string, trade
 }
 
 // FIXMarketDataIncrementalRefreshFromBookUpdate makes an incremental refresh entry from a book update
-func FIXMarketDataIncrementalRefreshFromBookUpdate(beginString, mdReqID string, update *bitfinex.BookUpdate, symbology symbol.Symbology, counterparty string) (message GenericFix) {
+func FIXMarketDataIncrementalRefreshFromBookUpdate(beginString, mdReqID string, update *book.Book, symbology symbol.Symbology, counterparty string) (message GenericFix) {
 	symbol, err := symbology.FromBitfinex(update.Symbol, counterparty)
 	if err != nil {
 		symbol = update.Symbol
@@ -211,9 +218,9 @@ func FIXMarketDataIncrementalRefreshFromBookUpdate(beginString, mdReqID string, 
 	entry := group.Add()
 	var t enum.MDEntryType
 	switch update.Side {
-	case bitfinex.Bid:
+	case common.Bid:
 		t = enum.MDEntryType_BID
-	case bitfinex.Ask:
+	case common.Ask:
 		t = enum.MDEntryType_OFFER
 	}
 	action := BookActionToFIX(update.Action)
@@ -352,15 +359,16 @@ func FIXExecutionReport(beginString, symbol, clOrdID, orderID, account string, e
 }
 
 // FIXExecutionReportFromOrder generates a FIX execution report from a bitfinex order
-func FIXExecutionReportFromOrder(beginString string, o *bitfinex.Order, account string, execType enum.ExecType, cumQty float64, ordStatus enum.OrdStatus, text string, symbology symbol.Symbology, counterparty string, flags int, stop, peg float64) (e GenericFix) {
+func FIXExecutionReportFromOrder(beginString string, o *order.Order, account string, execType enum.ExecType, cumQty float64, ordStatus enum.OrdStatus, text string, symbology symbol.Symbology, counterparty string, flags int, stop, peg float64) (e GenericFix) {
 	orderID := strconv.FormatInt(o.ID, 10)
 	// total order qty
 	fAmt := o.Amount
 	if fAmt < 0 {
 		fAmt = -fAmt
 	}
-	ordtype, isMargin := OrdTypeToFIX(bitfinex.OrderType(o.Type))
-	tif, exp := TimeInForceToFIX(bitfinex.OrderType(o.Type), o.MTSTif) // support FOK
+
+	ordtype, isMargin := OrdTypeToFIX(common.OrderType(o.Type))
+	tif, exp := TimeInForceToFIX(common.OrderType(o.Type), o.MTSTif) // support FOK
 
 	e = FIXExecutionReport(beginString, o.Symbol, strconv.FormatInt(o.CID, 10), orderID, account, execType, SideToFIX(o.Amount), fAmt, 0.0, cumQty, o.Price, stop, peg, o.PriceAvg, ordStatus, ordtype, isMargin, tif, exp, text, symbology, counterparty, flags)
 	if len(text) > 0 {
@@ -371,7 +379,7 @@ func FIXExecutionReportFromOrder(beginString string, o *bitfinex.Order, account 
 }
 
 // FIXExecutionReportFromTradeExecutionUpdate generates a FIX execution report from a bitfinex trade execution
-func FIXExecutionReportFromTradeExecutionUpdate(beginString string, t *bitfinex.TradeExecutionUpdate, account, clOrdID string, origQty, totalFillQty, origPx, stopPx, trailPx, avgFillPx float64, symbology symbol.Symbology, counterparty string, expTif int64, flags int) (er GenericFix) {
+func FIXExecutionReportFromTradeExecutionUpdate(beginString string, t *trades.AuthTradeExecutionUpdate, account, clOrdID string, origQty, totalFillQty, origPx, stopPx, trailPx, avgFillPx float64, symbology symbol.Symbology, counterparty string, expTif int64, flags int) (er GenericFix) {
 	orderID := strconv.FormatInt(t.OrderID, 10)
 	var execType enum.ExecType
 	var ordStatus enum.OrdStatus
@@ -386,8 +394,8 @@ func FIXExecutionReportFromTradeExecutionUpdate(beginString string, t *bitfinex.
 	if execAmt < 0 {
 		execAmt = -execAmt
 	}
-	tif, exp := TimeInForceToFIX(bitfinex.OrderType(t.OrderType), expTif) // support FOK
-	ordType, isMargin := OrdTypeToFIX(bitfinex.OrderType(t.OrderType))
+	tif, exp := TimeInForceToFIX(common.OrderType(t.OrderType), expTif) // support FOK
+	ordType, isMargin := OrdTypeToFIX(common.OrderType(t.OrderType))
 	er = FIXExecutionReport(beginString, t.Pair, clOrdID, orderID, account, execType, SideToFIX(t.ExecAmount), origQty, execAmt, totalFillQty, origPx, stopPx, trailPx, avgFillPx, ordStatus, ordType, isMargin, tif, exp, "", symbology, counterparty, flags)
 	f := t.Fee
 	if f < 0 {
@@ -456,7 +464,7 @@ func FIXOrderCancelReject(beginString, account, orderID, origClOrdID, cxlClOrdID
 }
 
 // FIXPositionReportFromWallet generates a FIX position report from a bitfinex wallet
-func FIXPositionReportFromWallet(beginString string, wallet *bitfinex.Wallet, account string) GenericFix {
+func FIXPositionReportFromWallet(beginString string, wallet *wallet.Wallet, account string) GenericFix {
 	e := pr50.New(
 		field.NewPosMaintRptID(uuid.NewV4().String()),
 		field.NewClearingBusinessDate(time.Now().Local().Format(LocalMktDate)),
@@ -473,7 +481,7 @@ func FIXPositionReportFromWallet(beginString string, wallet *bitfinex.Wallet, ac
 }
 
 // FIXPositionReportFromPosition generates a FIX position report from a bitfinex position
-func FIXPositionReportFromPosition(beginString string, position *bitfinex.Position, account string, symbology symbol.Symbology, counterparty string) GenericFix {
+func FIXPositionReportFromPosition(beginString string, position *position.Position, account string, symbology symbol.Symbology, counterparty string) GenericFix {
 	e := pr50.New(
 		field.NewPosMaintRptID(uuid.NewV4().String()),
 		field.NewClearingBusinessDate(time.Now().Local().Format(LocalMktDate)),

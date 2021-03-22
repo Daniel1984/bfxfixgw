@@ -1,9 +1,11 @@
 package convert
 
 import (
-	bfxv1 "github.com/bitfinexcom/bitfinex-api-go/v1"
-	"github.com/bitfinexcom/bitfinex-api-go/v2"
 	"strconv"
+
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/common"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/order"
+	bfxv1 "github.com/bitfinexcom/bitfinex-api-go/v1"
 )
 
 // converts messages from FIX to bitfinex
@@ -42,8 +44,8 @@ func StringOrEmpty(i interface{}) string {
 }
 
 // OrderFromV1Order converts a bitfinex v1 type order to v2
-func OrderFromV1Order(o bfxv1.Order) (*bitfinex.Order, error) {
-	out := &bitfinex.Order{}
+func OrderFromV1Order(o bfxv1.Order) (*order.Order, error) {
+	out := &order.Order{}
 
 	out.ID = o.ID
 	out.Symbol = o.Symbol
@@ -70,9 +72,9 @@ func OrderFromV1Order(o bfxv1.Order) (*bitfinex.Order, error) {
 
 	switch {
 	case o.IsCanceled:
-		out.Status = bitfinex.OrderStatusCanceled
+		out.Status = common.OrderStatusCanceled
 	case o.IsLive:
-		out.Status = bitfinex.OrderStatusActive
+		out.Status = common.OrderStatusActive
 	}
 
 	mul := 1
@@ -92,15 +94,15 @@ func OrderFromV1Order(o bfxv1.Order) (*bitfinex.Order, error) {
 
 	switch o.Type {
 	case "market":
-		out.Type = bitfinex.OrderTypeMarket
+		out.Type = common.OrderTypeMarket
 	case "limit":
-		out.Type = bitfinex.OrderTypeLimit
+		out.Type = common.OrderTypeLimit
 	case "exchange limit":
-		out.Type = bitfinex.OrderTypeExchangeLimit
+		out.Type = common.OrderTypeExchangeLimit
 	case "stop":
-		out.Type = bitfinex.OrderTypeStop
+		out.Type = common.OrderTypeStop
 	case "trailing-stop":
-		out.Type = bitfinex.OrderTypeTrailingStop
+		out.Type = common.OrderTypeTrailingStop
 	}
 
 	//out.PlacedID = o.

@@ -1,10 +1,11 @@
 package peer
 
 import (
-	"github.com/bitfinexcom/bitfinex-api-go/utils"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/utils"
 )
 
 var ts, nonce uint64

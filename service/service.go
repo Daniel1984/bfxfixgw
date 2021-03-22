@@ -1,12 +1,24 @@
 package service
 
 import (
+	"log"
+	"sync"
+
 	lg "github.com/bitfinexcom/bfxfixgw/log"
 	"github.com/bitfinexcom/bfxfixgw/service/fix"
 	"github.com/bitfinexcom/bfxfixgw/service/peer"
 	"github.com/bitfinexcom/bfxfixgw/service/symbol"
 	"github.com/bitfinexcom/bfxfixgw/service/websocket"
-	"github.com/bitfinexcom/bitfinex-api-go/v2"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/balanceinfo"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/book"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/fundinginfo"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/margin"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/notification"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/order"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/position"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/trade"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/trades"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/wallet"
 	wsv2 "github.com/bitfinexcom/bitfinex-api-go/v2/websocket"
 	"github.com/quickfixgo/enum"
 	"github.com/quickfixgo/field"
@@ -14,8 +26,6 @@ import (
 	mdrr "github.com/quickfixgo/fix42/marketdatarequestreject"
 	"github.com/quickfixgo/quickfix"
 	"go.uber.org/zap"
-	"log"
-	"sync"
 )
 
 // TagMDRequestType is the tag used for market data request type
@@ -115,25 +125,25 @@ func (s *Service) listen() {
 			break
 		}
 		switch obj := msg.Data.(type) {
-		case *bitfinex.Notification:
+		case *notification.Notification:
 			if !s.isOrderRoutingService() {
 				continue
 			} else if err := s.Websocket.FIXNotificationHandler(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix notification handler error", zap.Error(err))
 			}
-		case *bitfinex.OrderNew:
+		case *order.New:
 			if !s.isOrderRoutingService() {
 				continue
 			} else if err := s.Websocket.FIXOrderNewHandler(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix order new handler error", zap.Error(err))
 			}
-		case *bitfinex.OrderCancel:
+		case *order.Cancel:
 			if !s.isOrderRoutingService() {
 				continue
 			} else if err := s.Websocket.FIXOrderCancelHandler(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix order cancel handler error", zap.Error(err))
 			}
-		case *bitfinex.OrderUpdate:
+		case *order.Update:
 			if !s.isOrderRoutingService() {
 				continue
 			} else if err := s.Websocket.FIXOrderUpdateHandler(obj, msg.FIXSessionID()); err != nil {
@@ -145,49 +155,49 @@ func (s *Service) listen() {
 			if err := s.Websocket.FIXHandleAuth(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix auth handler error", zap.Error(err))
 			}
-		case *bitfinex.FundingInfo:
+		case *fundinginfo.FundingInfo:
 			// no-op
-		case *bitfinex.MarginInfoUpdate:
+		case *margin.InfoUpdate:
 			// no-op
-		case *bitfinex.MarginInfoBase:
+		case *margin.InfoBase:
 			// no-op
-		case *bitfinex.WalletSnapshot:
+		case *wallet.Snapshot:
 			if !s.isOrderRoutingService() {
 				continue
 			} else if err := s.Websocket.FIXWalletSnapshotHandler(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix wallet snapshot handler error", zap.Error(err))
 			}
-		case *bitfinex.WalletUpdate:
+		case *wallet.Update:
 			if !s.isOrderRoutingService() {
 				continue
 			} else if err := s.Websocket.FIXWalletUpdateHandler(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix wallet update handler error", zap.Error(err))
 			}
-		case *bitfinex.BalanceInfo:
+		case *balanceinfo.BalanceInfo:
 			if !s.isOrderRoutingService() {
 				continue
 			} else if err := s.Websocket.FIXBalanceInfoHandler(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix balance info handler error", zap.Error(err))
 			}
-		case *bitfinex.BalanceUpdate:
+		case *balanceinfo.Update:
 			if !s.isOrderRoutingService() {
 				continue
 			} else if err := s.Websocket.FIXBalanceUpdateHandler(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix balance update handler error", zap.Error(err))
 			}
-		case *bitfinex.PositionSnapshot:
+		case *position.Snapshot:
 			if !s.isOrderRoutingService() {
 				continue
 			} else if err := s.Websocket.FIXPositionSnapshotHandler(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix position snapshot handler error", zap.Error(err))
 			}
-		case *bitfinex.PositionUpdate:
+		case *position.Update:
 			if !s.isOrderRoutingService() {
 				continue
 			} else if err := s.Websocket.FIXPositionUpdateHandler(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix position update handler error", zap.Error(err))
 			}
-		case *bitfinex.OrderSnapshot:
+		case *order.Snapshot:
 			if !s.isOrderRoutingService() {
 				continue
 			} else if err := s.Websocket.FIXOrderSnapshotHandler(obj, msg.FIXSessionID()); err != nil {
@@ -195,40 +205,40 @@ func (s *Service) listen() {
 			}
 		case *wsv2.SubscribeEvent:
 			// no-op: don't need to ack subscription to client
-		case *bitfinex.BookUpdateSnapshot:
+		case *book.Snapshot:
 			if !s.isMarketDataService() {
 				continue
 			} else if err := s.Websocket.FIXBookSnapshot(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix book snapshot handler error", zap.Error(err))
 			}
-		case *bitfinex.BookUpdate:
+		case *book.Book:
 			if !s.isMarketDataService() {
 				continue
 			} else if err := s.Websocket.FIXBookUpdate(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix book update handler error", zap.Error(err))
 			}
-		case *bitfinex.TradeExecution:
-			// 'te' delivered in-order
-			/*
-				if !s.isOrderRoutingService() {
-					continue
-				}
-				s.Websocket.FIX42TradeExecutionHandler(obj, msg.FIXSessionID())
-			*/
-		case *bitfinex.TradeExecutionUpdate:
+		// case *bitfinex.TradeExecution:
+		// 'te' delivered in-order
+		/*
+			if !s.isOrderRoutingService() {
+				continue
+			}
+			s.Websocket.FIX42TradeExecutionHandler(obj, msg.FIXSessionID())
+		*/
+		case *trades.AuthTradeExecutionUpdate:
 			// ignore trade execution update ('tu') in favor of trade executions since they come in-order
 			if !s.isOrderRoutingService() {
 				continue
 			} else if err := s.Websocket.FIXTradeExecutionUpdateHandler(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix trade execution update handler error", zap.Error(err))
 			}
-		case *bitfinex.Trade: // public trade
+		case *trade.Trade: // public trade
 			if !s.isMarketDataService() {
 				continue
 			} else if err := s.Websocket.FIXTradeHandler(obj, msg.FIXSessionID()); err != nil {
 				s.log.Error("fix trade handler error", zap.Error(err))
 			}
-		case *bitfinex.TradeSnapshot:
+		case *trade.Snapshot:
 			// no-op: do not provide trade snapshots
 		case *wsv2.ErrorEvent:
 			// subscription error

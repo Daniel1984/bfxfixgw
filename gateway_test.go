@@ -3,21 +3,22 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/bitfinexcom/bfxfixgw/integration_test/mock"
-	"github.com/bitfinexcom/bfxfixgw/service/fix"
-	"github.com/bitfinexcom/bfxfixgw/service/symbol"
-	"github.com/bitfinexcom/bitfinex-api-go/utils"
-	"github.com/bitfinexcom/bitfinex-api-go/v2/rest"
-	"github.com/bitfinexcom/bitfinex-api-go/v2/websocket"
-	"github.com/quickfixgo/quickfix"
-	"github.com/quickfixgo/tag"
-	"github.com/stretchr/testify/suite"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/bitfinexcom/bfxfixgw/integration_test/mock"
+	"github.com/bitfinexcom/bfxfixgw/service/fix"
+	"github.com/bitfinexcom/bfxfixgw/service/symbol"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/utils"
+	"github.com/bitfinexcom/bitfinex-api-go/v2/rest"
+	"github.com/bitfinexcom/bitfinex-api-go/v2/websocket"
+	"github.com/quickfixgo/quickfix"
+	"github.com/quickfixgo/tag"
+	"github.com/stretchr/testify/suite"
 )
 
 const (

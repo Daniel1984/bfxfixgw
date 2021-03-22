@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/bitfinexcom/bfxfixgw/convert"
-	"github.com/bitfinexcom/bfxfixgw/service/peer"
-	"github.com/quickfixgo/tag"
 	"log"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bitfinexcom/bfxfixgw/convert"
+	"github.com/bitfinexcom/bfxfixgw/service/peer"
+	"github.com/quickfixgo/tag"
 
 	"go.uber.org/zap"
 
@@ -25,7 +26,8 @@ import (
 	lgoutfixt "github.com/quickfixgo/fixt11/logout"
 	"github.com/quickfixgo/quickfix"
 
-	"github.com/bitfinexcom/bitfinex-api-go/v2"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/common"
+	"github.com/bitfinexcom/bitfinex-api-go/pkg/models/order"
 )
 
 const (
@@ -43,10 +45,10 @@ var rejectReasonOther = 0
 func genFlags(hidden bool, postOnly bool) (flags int) {
 	flags = 0
 	if postOnly {
-		flags = flags | bitfinex.OrderFlagPostOnly
+		flags = flags | common.OrderFlagPostOnly
 	}
 	if hidden {
-		flags = flags | bitfinex.OrderFlagHidden
+		flags = flags | common.OrderFlagHidden
 	}
 	return
 }
@@ -62,8 +64,8 @@ func genMTSTif(timeInForce string) int64 {
 	return 0
 }
 
-func requestToOrder(o *bitfinex.OrderNewRequest) (ord *bitfinex.Order) {
-	ord = &bitfinex.Order{
+func requestToOrder(o *order.NewRequest) (ord *order.Order) {
+	ord = &order.Order{
 		GID:           o.GID,
 		CID:           o.CID,
 		Type:          o.Type,
@@ -79,8 +81,8 @@ func requestToOrder(o *bitfinex.OrderNewRequest) (ord *bitfinex.Order) {
 	return
 }
 
-func updateToOrder(o *bitfinex.OrderUpdateRequest, cid int64, typ, symbol string) (ord *bitfinex.Order) {
-	ord = &bitfinex.Order{
+func updateToOrder(o *order.UpdateRequest, cid int64, typ, symbol string) (ord *order.Order) {
+	ord = &order.Order{
 		GID:           o.GID,
 		CID:           cid,
 		Type:          typ,
@@ -208,7 +210,7 @@ func (f *FIX) OnFIXOrderCancelReplaceRequest(msg quickfix.FieldMap, sID quickfix
 		id = cache.OrderID
 	}
 
-	ou := &bitfinex.OrderUpdateRequest{GID: 0}
+	ou := &order.UpdateRequest{GID: 0}
 	//Ensure ids are fine
 	cidi, er := strconv.ParseInt(cid.String(), 10, 64)
 	if er != nil {
@@ -286,20 +288,20 @@ func rejectError(msg string) quickfix.MessageRejectError {
 	return quickfix.NewBusinessMessageRejectError(msg, rejectReasonOther, nil)
 }
 
-func validatePrecision(prec string) (bitfinex.BookPrecision, bool) {
+func validatePrecision(prec string) (common.BookPrecision, bool) {
 	switch prec {
-	case string(bitfinex.Precision0):
-		return bitfinex.Precision0, true
-	case string(bitfinex.Precision1):
-		return bitfinex.Precision1, true
-	case string(bitfinex.Precision2):
-		return bitfinex.Precision2, true
-	case string(bitfinex.Precision3):
-		return bitfinex.Precision3, true
-	case string(bitfinex.PrecisionRawBook):
-		return bitfinex.PrecisionRawBook, true
+	case string(common.Precision0):
+		return common.Precision0, true
+	case string(common.Precision1):
+		return common.Precision1, true
+	case string(common.Precision2):
+		return common.Precision2, true
+	case string(common.Precision3):
+		return common.Precision3, true
+	case string(common.PrecisionRawBook):
+		return common.PrecisionRawBook, true
 	}
-	return bitfinex.Precision0, false
+	return common.Precision0, false
 }
 
 func buildMarketDataRequestReject(beginString, mdReqID, text string, rejReason enum.MDReqRejReason) (rej convert.GenericFix) {
@@ -359,11 +361,11 @@ func (f *FIX) OnFIXMarketDataRequest(msg quickfix.FieldMap, sID quickfix.Session
 		depth = 100
 	}
 
-	var precision bitfinex.BookPrecision
+	var precision common.BookPrecision
 	var overridePrecision bool
 	fixPrecision, err := msg.GetString(PricePrecision)
 	if err != nil {
-		precision = bitfinex.Precision0
+		precision = common.Precision0
 	} else {
 		precision, overridePrecision = validatePrecision(fixPrecision)
 		if !overridePrecision {
@@ -427,16 +429,16 @@ func (f *FIX) OnFIXMarketDataRequest(msg quickfix.FieldMap, sID quickfix.Session
 		case enum.SubscriptionRequestType_SNAPSHOT_PLUS_UPDATES:
 			p.MapSymbolToReqID(symbol, mdReqID.String())
 
-			prec := bitfinex.Precision0
+			prec := common.Precision0
 			if overridePrecision {
 				prec = precision
 			} else {
 				aggregate := field.AggregatedBookField{} // aggregate by price (most granular by default) if no precision override is given
 				if err = msg.Get(&aggregate); err == nil && !aggregate.Value() {
-					prec = bitfinex.PrecisionRawBook
+					prec = common.PrecisionRawBook
 				}
 			}
-			bookReqID, err := p.Ws.SubscribeBook(context.Background(), symbol, prec, bitfinex.FrequencyRealtime, depth)
+			bookReqID, err := p.Ws.SubscribeBook(context.Background(), symbol, prec, common.FrequencyRealtime, depth)
 			if err != nil {
 				rej := buildMarketDataRequestReject(sID.BeginString, mdReqID.String(), err.Error(), enum.MDReqRejReason_UNKNOWN_SYMBOL)
 				f.logger.Warn("could not subscribe to book: " + err.Error())
@@ -496,7 +498,7 @@ func (f *FIX) OnFIXOrderCancelRequest(msg quickfix.FieldMap, sID quickfix.Sessio
 		return err
 	}
 
-	oc := &bitfinex.OrderCancelRequest{}
+	oc := &order.CancelRequest{}
 
 	p, ok := f.FindPeer(sID.String())
 	if !ok {
@@ -563,20 +565,20 @@ func (f *FIX) OnFIXOrderStatusRequest(msg quickfix.FieldMap, sID quickfix.Sessio
 		return reject(fmt.Errorf("could not find route for FIX session %s", sID.String()))
 	}
 
-	order, nerr := foundPeer.Rest.Orders.GetByOrderId(oidi)
+	ordr, nerr := foundPeer.Rest.Orders.GetByOrderId(oidi)
 	if nerr != nil {
 		return reject(nerr)
 	}
-	orderID := strconv.FormatInt(order.ID, 10)
-	clOrdID := strconv.FormatInt(order.CID, 10)
-	ordtype := bitfinex.OrderType(order.Type)
-	tif, _ := convert.TimeInForceToFIX(ordtype, order.MTSTif)
+	orderID := strconv.FormatInt(ordr.ID, 10)
+	clOrdID := strconv.FormatInt(ordr.CID, 10)
+	ordtype := common.OrderType(ordr.Type)
+	tif, _ := convert.TimeInForceToFIX(ordtype, ordr.MTSTif)
 	cached, err2 := foundPeer.LookupByOrderID(orderID)
 	if err2 != nil {
 		ot, isMargin := convert.OrdTypeToFIX(ordtype)
-		cached = foundPeer.AddOrder(clOrdID, order.Price, order.PriceAuxLimit, order.PriceTrailing, order.Amount, order.Symbol, foundPeer.BfxUserID(), convert.SideToFIX(order.Amount), ot, isMargin, tif, order.MTSTif, int(order.Flags))
+		cached = foundPeer.AddOrder(clOrdID, ordr.Price, ordr.PriceAuxLimit, ordr.PriceTrailing, ordr.Amount, ordr.Symbol, foundPeer.BfxUserID(), convert.SideToFIX(ordr.Amount), ot, isMargin, tif, ordr.MTSTif, int(ordr.Flags))
 	}
-	status := convert.OrdStatusToFIX(order.Status)
-	er := convert.FIXExecutionReportFromOrder(sID.BeginString, order, foundPeer.BfxUserID(), enum.ExecType_ORDER_STATUS, cached.FilledQty(), status, "", f.Symbology, sID.TargetCompID, cached.Flags, cached.Stop, cached.Trail)
+	status := convert.OrdStatusToFIX(ordr.Status)
+	er := convert.FIXExecutionReportFromOrder(sID.BeginString, ordr, foundPeer.BfxUserID(), enum.ExecType_ORDER_STATUS, cached.FilledQty(), status, "", f.Symbology, sID.TargetCompID, cached.Flags, cached.Stop, cached.Trail)
 	return sendToTarget(er, sID)
 }
